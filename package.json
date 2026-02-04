@@ -17,6 +17,7 @@
   "dependencies": {
     "@nestjs/core": "^11.1.13",
     "@prisma/client": "^7.3.0",
+    "dotenv": "^17.2.3",
     "prisma": "^7.3.0"
   }
 }
