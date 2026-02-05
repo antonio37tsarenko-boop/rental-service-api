@@ -11,7 +11,7 @@ import { ConfigModule, ConfigService } from "@nestjs/config";
         type: "single",
         url: configService.getOrThrow("REDIS_URL"),
       }),
-      inject: [ConfigModule],
+      inject: [ConfigService],
     }),
     ConfigModule,
   ],
