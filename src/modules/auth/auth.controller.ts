@@ -1,9 +1,17 @@
-import { Body, Controller, Post, Res } from "@nestjs/common";
+import {
+  Body,
+  Controller,
+  Post,
+  Req,
+  Res,
+  UnauthorizedException,
+} from "@nestjs/common";
 import { RegisterDto } from "./dto/register.dto";
 import { LoginDto } from "./dto/login.dto";
 import { ConfirmRegistrationDto } from "./dto/confirm-registration.dto";
 import { AuthService } from "./auth.service";
-import { Response } from "express";
+import { Response, Request } from "express";
+import { REFRESH_TOKEN_TTL } from "./auth.constants";
 
 @Controller("auth")
 export class AuthController {
@@ -43,6 +51,27 @@ export class AuthController {
       secure: true,
       sameSite: "lax",
       maxAge: 7 * 24 * 60 * 60 * 1000,
+    });
+
+    return sendData;
+  }
+
+  @Post("refresh")
+  async refresh(
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const oldRefreshToken = req.cookies["refreshToken"];
+    if (!oldRefreshToken) throw new UnauthorizedException();
+
+    const { sendData, refresh_token } =
+      await this.authService.refresh(oldRefreshToken);
+
+    res.cookie("refreshToken", refresh_token, {
+      httpOnly: true,
+      secure: true,
+      sameSite: "lax",
+      maxAge: REFRESH_TOKEN_TTL * 1000,
     });
 
     return sendData;

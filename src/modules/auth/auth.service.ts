@@ -20,6 +20,7 @@ import {
   WRONG_PASSWORD_ERROR,
   getRefreshTokenPayload,
   REFRESH_TOKEN_TTL,
+  INVALID_REFRESH_TOKEN_ERROR,
 } from "./auth.constants";
 import { MailService } from "../mail/mail.service";
 import { generateOtp } from "../../utils/generate-otp.util";
@@ -170,6 +171,43 @@ export class AuthService {
     );
     return {
       access_token,
+      refresh_token,
+    };
+  }
+
+  async refresh(refreshToken: string) {
+    const payload = await this.jwtService.verifyAsync<{
+      email: string;
+      id: string;
+      expiresIn: string;
+    }>(refreshToken);
+
+    const savedToken = await this.cacheService.get<string>(
+      `refresh_token:${payload.id}`,
+    );
+
+    if (!savedToken || savedToken !== refreshToken) {
+      throw new UnauthorizedException(INVALID_REFRESH_TOKEN_ERROR);
+    }
+
+    const user = await this.prisma.user.findUnique({
+      where: {
+        email: payload.email,
+      },
+    });
+
+    if (!user) {
+      throw new UnauthorizedException(USER_DOESNT_EXIST_ERROR);
+    }
+
+    const { access_token, refresh_token } =
+      await this.generateAndSaveTokens(user);
+
+    return {
+      sendData: {
+        access_token,
+        id: user.id,
+      },
       refresh_token,
     };
   }
