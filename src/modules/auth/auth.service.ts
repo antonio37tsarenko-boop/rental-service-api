@@ -7,7 +7,6 @@ import {
 import { RegisterDto } from "./dto/register.dto";
 import { LoginDto } from "./dto/login.dto";
 import { ConfirmRegistrationDto } from "./dto/confirm-registration.dto";
-import { PrismaService } from "../prisma/prisma.service";
 import {
   EMAIL_NOT_ACCEPTED_ON_REGISTRATION_ERROR,
   MAIL_MESSAGE,
@@ -29,15 +28,16 @@ import { ICacheUserData } from "./interfaces/cache-user-data.inteface";
 import { HashService } from "./hash.service";
 import { JwtService } from "@nestjs/jwt";
 import { User } from "@prisma/client";
+import { UserService } from "../user/user.service";
 
 @Injectable()
 export class AuthService {
   constructor(
-    private readonly prisma: PrismaService,
     private readonly mailService: MailService,
     private readonly cacheService: CacheService,
     private readonly hashService: HashService,
     private readonly jwtService: JwtService,
+    private readonly userService: UserService,
   ) {}
 
   async register({
@@ -48,11 +48,7 @@ export class AuthService {
     firstName,
   }: RegisterDto) {
     const otp = generateOtp();
-    const user = await this.prisma.user.findFirst({
-      where: {
-        email: email,
-      },
-    });
+    const user = await this.userService.findUserByEmail(email);
     if (user) {
       throw new BadRequestException(USER_EXISTS_ERROR);
     }
@@ -81,6 +77,8 @@ export class AuthService {
       text: MAIL_MESSAGE + otp,
       subject: MAIL_SUBJECT,
     });
+
+    return "Otp Mail is sent.";
   }
 
   async confirmRegistration({ email, otp }: ConfirmRegistrationDto) {
@@ -91,22 +89,13 @@ export class AuthService {
     }
 
     const TruthfulOtp = cacheUserData.otp;
-    const { hashedPassword, firstName, middleName, lastName } =
-      cacheUserData.userRegisterData;
+    const userData = cacheUserData.userRegisterData;
 
     if (TruthfulOtp !== otp) {
       throw new BadRequestException(WRONG_OTP_ERROR);
     }
 
-    const user = await this.prisma.user.create({
-      data: {
-        email,
-        hashedPassword,
-        firstName,
-        middleName,
-        lastName,
-      },
-    });
+    const user = await this.userService.createUser(userData);
     await this.cacheService.delete(redisKey);
 
     const { access_token, refresh_token } =
@@ -123,15 +112,7 @@ export class AuthService {
   async login(dto: LoginDto) {
     const { email, password } = dto;
 
-    const user = await this.prisma.user.findUnique({
-      where: {
-        email,
-      },
-    });
-
-    if (!user) {
-      throw new UnauthorizedException(USER_DOESNT_EXIST_ERROR);
-    }
+    const user = await this.userService.findUserByEmailOrThrow(email);
 
     const isCorrectPassword = await this.hashService.compare(
       user.hashedPassword,
@@ -190,15 +171,7 @@ export class AuthService {
       throw new UnauthorizedException(INVALID_REFRESH_TOKEN_ERROR);
     }
 
-    const user = await this.prisma.user.findUnique({
-      where: {
-        email: payload.email,
-      },
-    });
-
-    if (!user) {
-      throw new UnauthorizedException(USER_DOESNT_EXIST_ERROR);
-    }
+    const user = await this.userService.findUserByEmailOrThrow(payload.email);
 
     const { access_token, refresh_token } =
       await this.generateAndSaveTokens(user);

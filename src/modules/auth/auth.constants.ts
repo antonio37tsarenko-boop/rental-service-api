@@ -13,7 +13,7 @@ export const OTP_TTL: number = 600;
 export const REFRESH_TOKEN_TTL: number = 60 * 60 * 24 * 7;
 
 export const getAccessTokenPayload = function (user: User): object {
-  const { id, email, firstName } = user;
+  const { id, email, firstName, role } = user;
   return {
     expiresIn: "15m",
     email,
