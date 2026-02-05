@@ -7,7 +7,7 @@ import { MailModule } from "../mail/mail.module";
 import { CacheModule } from "../cache/cache.module";
 import { JwtModule } from "@nestjs/jwt";
 import { ConfigModule, ConfigService } from "@nestjs/config";
-import { getJwtConfig } from "../../configs/jwt.config";
+// import { getJwtConfig } from "../../configs/jwt.config";
 import { PassportModule } from "@nestjs/passport";
 import { JwtStrategy } from "./strategies/jwt.strategy";
 
@@ -18,7 +18,7 @@ import { JwtStrategy } from "./strategies/jwt.strategy";
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
-      useFactory: getJwtConfig,
+      // useFactory: getJwtConfig,
     }),
     PassportModule,
     PrismaModule,

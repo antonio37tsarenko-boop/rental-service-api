@@ -1,8 +1,9 @@
-import { Body, Controller, Post } from "@nestjs/common";
+import { Body, Controller, Post, Res } from "@nestjs/common";
 import { RegisterDto } from "./dto/register.dto";
 import { LoginDto } from "./dto/login.dto";
 import { ConfirmRegistrationDto } from "./dto/confirm-registration.dto";
 import { AuthService } from "./auth.service";
+import { Response } from "express";
 
 @Controller("auth")
 export class AuthController {
@@ -14,12 +15,36 @@ export class AuthController {
   }
 
   @Post("login")
-  login(@Body() dto: LoginDto) {
-    return this.authService.login(dto);
+  async login(
+    @Body() dto: LoginDto,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const { refresh_token, sendData } = await this.authService.login(dto);
+    res.cookie("refreshToken", refresh_token, {
+      httpOnly: true,
+      secure: true,
+      sameSite: "lax",
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+    });
+
+    return sendData;
   }
 
   @Post("confirm")
-  confirmRegistration(@Body() dto: ConfirmRegistrationDto) {
-    return this.authService.confirmRegistration(dto);
+  async confirmRegistration(
+    @Body() dto: ConfirmRegistrationDto,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const { refresh_token, sendData } =
+      await this.authService.confirmRegistration(dto);
+
+    res.cookie("refreshToken", refresh_token, {
+      httpOnly: true,
+      secure: true,
+      sameSite: "lax",
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+    });
+
+    return sendData;
   }
 }

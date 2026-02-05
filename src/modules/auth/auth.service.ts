@@ -1,4 +1,9 @@
-import { BadRequestException, Injectable, Post } from "@nestjs/common";
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  UnauthorizedException,
+} from "@nestjs/common";
 import { RegisterDto } from "./dto/register.dto";
 import { LoginDto } from "./dto/login.dto";
 import { ConfirmRegistrationDto } from "./dto/confirm-registration.dto";
@@ -8,8 +13,13 @@ import {
   MAIL_MESSAGE,
   MAIL_SUBJECT,
   OTP_TTL,
+  getAccessTokenPayload,
+  USER_DOESNT_EXIST_ERROR,
   USER_EXISTS_ERROR,
   WRONG_OTP_ERROR,
+  WRONG_PASSWORD_ERROR,
+  getRefreshTokenPayload,
+  REFRESH_TOKEN_TTL,
 } from "./auth.constants";
 import { MailService } from "../mail/mail.service";
 import { generateOtp } from "../../utils/generate-otp.util";
@@ -17,6 +27,7 @@ import { CacheService } from "../cache/cache.service";
 import { ICacheUserData } from "./interfaces/cache-user-data.inteface";
 import { HashService } from "./hash.service";
 import { JwtService } from "@nestjs/jwt";
+import { User } from "@prisma/client";
 
 @Injectable()
 export class AuthService {
@@ -86,7 +97,7 @@ export class AuthService {
       throw new BadRequestException(WRONG_OTP_ERROR);
     }
 
-    const { id } = await this.prisma.user.create({
+    const user = await this.prisma.user.create({
       data: {
         email,
         hashedPassword,
@@ -97,16 +108,69 @@ export class AuthService {
     });
     await this.cacheService.delete(redisKey);
 
-    const access_token = await this.jwtService.signAsync({
-      email,
-      user: { id, email, firstName },
-    });
-
+    const { access_token, refresh_token } =
+      await this.generateAndSaveTokens(user);
     return {
-      access_token,
-      id,
+      sendData: {
+        access_token,
+        id: user.id,
+      },
+      refresh_token,
     };
   }
 
-  async login(dto: LoginDto) {}
+  async login(dto: LoginDto) {
+    const { email, password } = dto;
+
+    const user = await this.prisma.user.findUnique({
+      where: {
+        email,
+      },
+    });
+
+    if (!user) {
+      throw new UnauthorizedException(USER_DOESNT_EXIST_ERROR);
+    }
+
+    const isCorrectPassword = await this.hashService.compare(
+      user.hashedPassword,
+      password,
+    );
+
+    if (!isCorrectPassword) {
+      throw new ForbiddenException(WRONG_PASSWORD_ERROR);
+    }
+
+    const { access_token, refresh_token } =
+      await this.generateAndSaveTokens(user);
+
+    return {
+      sendData: {
+        access_token,
+        id: user.id,
+      },
+      refresh_token,
+    };
+  }
+
+  async generateAndSaveTokens(user: User): Promise<{
+    access_token: string;
+    refresh_token: string;
+  }> {
+    const access_token = await this.jwtService.signAsync(
+      getAccessTokenPayload(user),
+    );
+    const refresh_token = await this.jwtService.signAsync(
+      getRefreshTokenPayload(user),
+    );
+    await this.cacheService.set(
+      `refresh_token:${user.id}`,
+      refresh_token,
+      REFRESH_TOKEN_TTL,
+    );
+    return {
+      access_token,
+      refresh_token,
+    };
+  }
 }
