@@ -24,7 +24,7 @@ export class UserService {
     const { role } = currentUser;
     const currentUserEmail = currentUser.email;
 
-    if (email !== currentUserEmail || role !== UserRoles.ADMIN) {
+    if (email.trim() !== currentUserEmail.trim() && role !== UserRoles.ADMIN) {
       throw new ForbiddenException();
     }
 
