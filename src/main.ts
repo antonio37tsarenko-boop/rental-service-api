@@ -3,6 +3,7 @@ import { AppModule } from "./modules/app/app.module";
 import { Logger, ValidationPipe } from "@nestjs/common";
 import * as dotenv from "dotenv";
 import * as cookieParser from "cookie-parser";
+import { TrimPipe } from "./common/pipes/trim.pipe";
 
 dotenv.config();
 
@@ -16,6 +17,7 @@ async function bootstrap() {
       whitelist: true,
       forbidNonWhitelisted: true,
     }),
+    new TrimPipe(),
   );
   app.use(cookieParser());
 
