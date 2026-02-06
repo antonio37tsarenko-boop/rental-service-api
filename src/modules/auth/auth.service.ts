@@ -13,12 +13,10 @@ import {
   MAIL_SUBJECT,
   OTP_TTL,
   getAccessTokenPayload,
-  USER_DOESNT_EXIST_ERROR,
   USER_EXISTS_ERROR,
   WRONG_OTP_ERROR,
   WRONG_PASSWORD_ERROR,
   getRefreshTokenPayload,
-  REFRESH_TOKEN_TTL,
   INVALID_REFRESH_TOKEN_ERROR,
 } from "./auth.constants";
 import { MailService } from "../mail/mail.service";
@@ -29,6 +27,7 @@ import { HashService } from "./hash.service";
 import { JwtService } from "@nestjs/jwt";
 import { User } from "@prisma/client";
 import { UserService } from "../user/user.service";
+import { IJwtPayload } from "../user/interfaces/jwt-payload.interface";
 
 @Injectable()
 export class AuthService {
@@ -145,11 +144,7 @@ export class AuthService {
     const refresh_token = await this.jwtService.signAsync(
       getRefreshTokenPayload(user),
     );
-    await this.cacheService.set(
-      `refresh_token:${user.id}`,
-      refresh_token,
-      REFRESH_TOKEN_TTL,
-    );
+
     return {
       access_token,
       refresh_token,
@@ -157,17 +152,10 @@ export class AuthService {
   }
 
   async refresh(refreshToken: string) {
-    const payload = await this.jwtService.verifyAsync<{
-      email: string;
-      id: string;
-      expiresIn: string;
-    }>(refreshToken);
-
-    const savedToken = await this.cacheService.get<string>(
-      `refresh_token:${payload.id}`,
-    );
-
-    if (!savedToken || savedToken !== refreshToken) {
+    let payload: IJwtPayload;
+    try {
+      payload = await this.jwtService.verifyAsync<IJwtPayload>(refreshToken);
+    } catch (e) {
       throw new UnauthorizedException(INVALID_REFRESH_TOKEN_ERROR);
     }
 

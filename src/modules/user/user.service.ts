@@ -1,7 +1,14 @@
-import { BadRequestException, Injectable } from "@nestjs/common";
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+} from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
 import { USER_DOESNT_EXIST_ERROR } from "../auth/auth.constants";
 import { ICreateUserData } from "./interfaces/create-user-data.interface";
+import { DeleteUserDto } from "./dto/delete-user.dto";
+import { IJwtPayload } from "./interfaces/jwt-payload.interface";
+import { UserRoles } from "@prisma/client";
 
 @Injectable()
 export class UserService {
@@ -13,23 +20,27 @@ export class UserService {
     });
   }
 
-  async deleteUser(userId: string) {
-    return this.prisma.user.delete({
-      where: {
-        id: userId,
-      },
-    });
-  }
+  async deleteUser({ email }: DeleteUserDto, currentUser: IJwtPayload) {
+    const { role } = currentUser;
+    const currentUserEmail = currentUser.email;
 
-  async deleteUserOrThrow(userId: string) {
+    if (email !== currentUserEmail || role !== UserRoles.ADMIN) {
+      throw new ForbiddenException();
+    }
+
     const deletedUser = await this.prisma.user.delete({
       where: {
-        id: userId,
+        email: email,
       },
     });
     if (!deletedUser) {
       throw new BadRequestException(USER_DOESNT_EXIST_ERROR);
     }
+
+    return {
+      status: "done",
+      id: deletedUser.id,
+    };
   }
 
   async findUserByEmail(email: string) {

@@ -1,4 +1,5 @@
 import { User } from "@prisma/client";
+import { IJwtPayload } from "../user/interfaces/jwt-payload.interface";
 
 export const USER_EXISTS_ERROR: string = "User with this email already exists.";
 export const MAIL_MESSAGE: string = `This is your One Time Password. Don\'t tell it to nobody. If you didn\'t request it - ignore this message`;
@@ -12,13 +13,13 @@ export const EMAIL_NOT_ACCEPTED_ON_REGISTRATION_ERROR: string =
 export const OTP_TTL: number = 600;
 export const REFRESH_TOKEN_TTL: number = 60 * 60 * 24 * 7;
 
-export const getAccessTokenPayload = function (user: User): object {
-  const { id, email, firstName, role } = user;
+export const getAccessTokenPayload = function (user: User): IJwtPayload {
+  const { id, email, role } = user;
   return {
     expiresIn: "15m",
     email,
     id,
-    firstName,
+    role,
   };
 };
 
