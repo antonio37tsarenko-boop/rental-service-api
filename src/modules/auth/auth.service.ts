@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ForbiddenException,
   Injectable,
+  Logger,
   UnauthorizedException,
 } from "@nestjs/common";
 import { RegisterDto } from "./dto/register.dto";
@@ -23,7 +24,7 @@ import { MailService } from "../mail/mail.service";
 import { generateOtp } from "../../utils/generate-otp.util";
 import { CacheService } from "../cache/cache.service";
 import { ICacheUserData } from "./interfaces/cache-user-data.inteface";
-import { HashService } from "./hash.service";
+import { HashService } from "../hash/hash.service";
 import { JwtService } from "@nestjs/jwt";
 import { User } from "@prisma/client";
 import { UserService } from "../user/user.service";
@@ -31,6 +32,7 @@ import { IJwtPayload } from "../user/interfaces/jwt-payload.interface";
 
 @Injectable()
 export class AuthService {
+  logger: Logger = new Logger("AuthService");
   constructor(
     private readonly mailService: MailService,
     private readonly cacheService: CacheService,
@@ -65,11 +67,7 @@ export class AuthService {
       },
     };
 
-    await this.cacheService.set(
-      `otp:${email}`,
-      JSON.stringify(CacheUserData),
-      OTP_TTL,
-    );
+    await this.cacheService.set(`otp:${email}`, CacheUserData, OTP_TTL);
 
     await this.mailService.sendMail({
       to: email,
@@ -113,17 +111,25 @@ export class AuthService {
 
     const user = await this.userService.findUserByEmailOrThrow(email);
 
+    console.log("DEBUG: _____", user.hashedPassword, password);
+
     const isCorrectPassword = await this.hashService.compare(
       user.hashedPassword,
       password,
     );
 
+    console.log("DEBUG: _____", isCorrectPassword);
+
     if (!isCorrectPassword) {
       throw new ForbiddenException(WRONG_PASSWORD_ERROR);
     }
 
+    this.logger.log("Password is checked.");
+
     const { access_token, refresh_token } =
       await this.generateAndSaveTokens(user);
+
+    this.logger.log("Tokens are generated and response is ready.");
 
     return {
       sendData: {
@@ -141,9 +147,14 @@ export class AuthService {
     const access_token = await this.jwtService.signAsync(
       getAccessTokenPayload(user),
     );
+
+    this.logger.log("Access token is generated");
+
     const refresh_token = await this.jwtService.signAsync(
       getRefreshTokenPayload(user),
     );
+
+    this.logger.log("Refresh token is generated");
 
     return {
       access_token,
@@ -159,7 +170,7 @@ export class AuthService {
       throw new UnauthorizedException(INVALID_REFRESH_TOKEN_ERROR);
     }
 
-    const user = await this.userService.findUserByEmailOrThrow(payload.email);
+    const user = await this.userService.findUserByIdOrThrow(payload.id);
 
     const { access_token, refresh_token } =
       await this.generateAndSaveTokens(user);

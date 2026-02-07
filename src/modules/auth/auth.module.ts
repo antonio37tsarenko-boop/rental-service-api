@@ -1,7 +1,7 @@
 import { Module } from "@nestjs/common";
 import { AuthController } from "./auth.controller";
 import { AuthService } from "./auth.service";
-import { HashService } from "./hash.service";
+import { HashService } from "../hash/hash.service";
 import { PrismaModule } from "../prisma/prisma.module";
 import { MailModule } from "../mail/mail.module";
 import { CacheModule } from "../cache/cache.module";
@@ -11,6 +11,7 @@ import { getJwtConfig } from "../../configs/jwt.config";
 import { PassportModule } from "@nestjs/passport";
 import { JwtStrategy } from "./strategies/jwt.strategy";
 import { UserModule } from "../user/user.module";
+import { HashModule } from "../hash/hash.module";
 
 @Module({
   controllers: [AuthController],
@@ -26,6 +27,8 @@ import { UserModule } from "../user/user.module";
     MailModule,
     CacheModule,
     UserModule,
+    HashModule,
   ],
+  exports: [JwtModule],
 })
 export class AuthModule {}
