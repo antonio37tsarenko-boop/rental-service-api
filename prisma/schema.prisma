@@ -13,16 +13,19 @@ enum UserRoles {
   USER
   ADMIN
 }
+
 enum BikeTypeNames {
   CITY
   ROAD
   MOUNTAIN
 }
+
 enum BikeStatuses {
   AVAILABLE
   RENTED
   MAINTENANCE
 }
+
 enum GeoZoneTypes {
   PARKING
   FORBIDDEN
@@ -38,7 +41,7 @@ model BikeType {
 }
 
 model Bike {
-  id            String                                @id @default(uuid())
+  id            String                                @id @default(uuid(7))
   typeId        Int
   type          BikeType                              @relation(fields: [typeId], references: [id])
   batteryCharge Int                                   @default(100)
@@ -49,7 +52,7 @@ model Bike {
 }
 
 model User {
-  id             String    @id @default(uuid())
+  id             String    @id @default(uuid(7))
   email          String    @unique
   hashedPassword String
   balance        Decimal   @default(0)
@@ -70,7 +73,7 @@ model GeoZone {
 }
 
 model Rental {
-  id         String    @id @default(uuid())
+  id         String    @id @default(uuid(7))
   userId     String
   user       User      @relation(fields: [userId], references: [id])
   bikeId     String

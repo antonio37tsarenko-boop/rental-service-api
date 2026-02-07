@@ -2,17 +2,24 @@ import {
   BadRequestException,
   ForbiddenException,
   Injectable,
+  InternalServerErrorException,
+  Query,
 } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
-import { USER_DOESNT_EXIST_ERROR } from "../auth/auth.constants";
 import { ICreateUserData } from "./interfaces/create-user-data.interface";
-import { DeleteUserDto } from "./dto/delete-user.dto";
 import { IJwtPayload } from "./interfaces/jwt-payload.interface";
-import { UserRoles } from "@prisma/client";
+import { Prisma, User, UserRoles } from "@prisma/client";
+import { ResStatusesEnum } from "../../enums/res-statuses.enum";
+import { UserDoesntExistException } from "../../common/exceptions/user-doesnt-exist.excep";
+import { HashService } from "../hash/hash.service";
+import { ChangePasswordDto } from "./dto/change-password.dto";
 
 @Injectable()
 export class UserService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly hashService: HashService,
+  ) {}
 
   async createUser(userData: ICreateUserData) {
     return this.prisma.user.create({
@@ -20,21 +27,30 @@ export class UserService {
     });
   }
 
-  async deleteUser({ email }: DeleteUserDto, currentUser: IJwtPayload) {
+  async deleteUser(userId: string, currentUser: IJwtPayload) {
     const { role } = currentUser;
-    const currentUserEmail = currentUser.email;
+    const currentUserId = currentUser.id;
 
-    if (email.trim() !== currentUserEmail.trim() && role !== UserRoles.ADMIN) {
+    if (userId.trim() !== currentUserId.trim() && role !== UserRoles.ADMIN) {
       throw new ForbiddenException();
     }
+    let deletedUser: User;
 
-    const deletedUser = await this.prisma.user.delete({
-      where: {
-        email: email,
-      },
-    });
-    if (!deletedUser) {
-      throw new BadRequestException(USER_DOESNT_EXIST_ERROR);
+    try {
+      deletedUser = await this.prisma.user.delete({
+        where: {
+          id: userId,
+        },
+      });
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError) {
+        if (error.code === "P2025") {
+          throw new UserDoesntExistException();
+        }
+      }
+      throw new InternalServerErrorException(
+        "Unknown User service prisma error",
+      );
     }
 
     return {
@@ -54,8 +70,72 @@ export class UserService {
   async findUserByEmailOrThrow(email: string) {
     const user = await this.findUserByEmail(email);
     if (!user) {
-      throw new BadRequestException(USER_DOESNT_EXIST_ERROR);
+      throw new UserDoesntExistException();
     }
     return user;
+  }
+
+  async findUserById(id: string) {
+    return this.prisma.user.findUnique({
+      where: {
+        id,
+      },
+    });
+  }
+
+  async findUserByIdOrThrow(id: string) {
+    const user = await this.findUserById(id);
+    if (!user) {
+      throw new UserDoesntExistException();
+    }
+
+    return user;
+  }
+
+  private async changeUserProperty<
+    K extends keyof typeof Prisma.UserScalarFieldEnum,
+  >(userId: string, propertyType: K, value: User[K]) {
+    const updatedUser = await this.prisma.user.updateMany({
+      where: {
+        id: userId,
+      },
+      data: {
+        [propertyType]: value,
+      },
+    });
+    if (updatedUser.count == 0) {
+      throw new UserDoesntExistException();
+    }
+
+    return {
+      status: ResStatusesEnum.DONE,
+      id: userId,
+    };
+  }
+
+  async changePassword(
+    { userId, newPassword }: ChangePasswordDto,
+    currentUser: IJwtPayload,
+  ) {
+    const { role } = currentUser;
+    const currentUserId = currentUser.id;
+
+    if (userId.trim() !== currentUserId.trim() && role !== UserRoles.ADMIN) {
+      throw new ForbiddenException();
+    }
+
+    const user = await this.findUserByIdOrThrow(userId);
+
+    const isSamePassword = await this.hashService.compare(
+      user.hashedPassword,
+      newPassword,
+    );
+    if (isSamePassword) {
+      throw new BadRequestException("Same password.");
+    }
+
+    const hashedPassword = await this.hashService.hashPassword(newPassword);
+
+    return this.changeUserProperty(userId, "hashedPassword", hashedPassword);
   }
 }

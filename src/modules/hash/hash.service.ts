@@ -8,6 +8,6 @@ export class HashService {
   }
 
   compare(hash: string, password: string) {
-    return bcrypt.compare(hash, password);
+    return bcrypt.compare(password, hash);
   }
 }
