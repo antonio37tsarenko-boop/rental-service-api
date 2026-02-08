@@ -146,12 +146,14 @@ export class AuthService {
   }> {
     const access_token = await this.jwtService.signAsync(
       getAccessTokenPayload(user),
+      { expiresIn: "15m" },
     );
 
     this.logger.log("Access token is generated");
 
     const refresh_token = await this.jwtService.signAsync(
       getRefreshTokenPayload(user),
+      { expiresIn: "7d" },
     );
 
     this.logger.log("Refresh token is generated");
@@ -171,6 +173,7 @@ export class AuthService {
     }
 
     const user = await this.userService.findUserByIdOrThrow(payload.id);
+    console.log(user, user.role);
 
     const { access_token, refresh_token } =
       await this.generateAndSaveTokens(user);
