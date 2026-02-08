@@ -1,11 +1,10 @@
-import { Body, Controller, Post, Req, UseGuards } from "@nestjs/common";
+import { Body, Controller, Patch, Post, UseGuards } from "@nestjs/common";
 import { CreateBikeDto } from "./dto/create-bike.dto";
 import { JwtAuthGuard } from "../../guards/jwt-auth.guard";
-import { getUserOrThrow } from "../../utils/get-user-or-throw.util";
-import { Request } from "express";
 import { BikesService } from "./bikes.service";
 import { IJwtPayload } from "../user/interfaces/jwt-payload.interface";
 import { User } from "../../common/decorators/user.decorator";
+import { ChangeBikeStatusDto } from "./dto/change-bike-status.dto";
 
 @Controller("bikes")
 export class BikesController {
@@ -14,9 +13,17 @@ export class BikesController {
   @Post()
   async createBike(
     @Body() dto: CreateBikeDto,
-    @Req() req: Request,
     @User() currentUser: IJwtPayload,
   ) {
     return await this.bikesService.createBike(dto, currentUser);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Patch("status")
+  async changeBikeStatus(
+    @Body() dto: ChangeBikeStatusDto,
+    @User() currentUser: IJwtPayload,
+  ) {
+    return this.bikesService.changeBikeStatus(dto, currentUser);
   }
 }

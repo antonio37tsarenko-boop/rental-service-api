@@ -111,14 +111,10 @@ export class AuthService {
 
     const user = await this.userService.findUserByEmailOrThrow(email);
 
-    console.log("DEBUG: _____", user.hashedPassword, password);
-
     const isCorrectPassword = await this.hashService.compare(
       user.hashedPassword,
       password,
     );
-
-    console.log("DEBUG: _____", isCorrectPassword);
 
     if (!isCorrectPassword) {
       throw new ForbiddenException(WRONG_PASSWORD_ERROR);
@@ -173,7 +169,6 @@ export class AuthService {
     }
 
     const user = await this.userService.findUserByIdOrThrow(payload.id);
-    console.log(user, user.role);
 
     const { access_token, refresh_token } =
       await this.generateAndSaveTokens(user);

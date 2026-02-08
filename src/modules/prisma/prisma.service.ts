@@ -1,11 +1,14 @@
 import { PrismaClient } from "@prisma/client";
 import {
+  Inject,
   Injectable,
   Logger,
   OnApplicationShutdown,
   OnModuleInit,
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
+import { TransactionHost } from "@nestjs-cls/transactional";
+import { TransactionalAdapterPrisma } from "@nestjs-cls/transactional-adapter-prisma";
 
 @Injectable()
 export class PrismaService
@@ -13,9 +16,8 @@ export class PrismaService
   implements OnModuleInit, OnApplicationShutdown
 {
   logger: Logger = new Logger("PrismaService");
-
   constructor(configService: ConfigService) {
-    const url = configService.get<string>("DATABASE_URL");
+    const url = configService.getOrThrow<string>("DATABASE_URL");
 
     if (url) {
       process.env.DATABASE_URL = url;
@@ -30,7 +32,7 @@ export class PrismaService
     this.$disconnect();
   }
 
-  onModuleInit() {
-    this.$connect();
+  async onModuleInit() {
+    await this.$connect();
   }
 }
