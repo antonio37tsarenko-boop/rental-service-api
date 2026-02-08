@@ -41,7 +41,7 @@ model BikeType {
 }
 
 model Bike {
-  id            String                                @id @default(uuid(7))
+  id            String                                @id @default(uuid())
   typeId        Int
   type          BikeType                              @relation(fields: [typeId], references: [id])
   batteryCharge Int                                   @default(100)
@@ -52,7 +52,7 @@ model Bike {
 }
 
 model User {
-  id             String    @id @default(uuid(7))
+  id             String    @id @default(uuid())
   email          String    @unique
   hashedPassword String
   balance        Decimal   @default(0)
@@ -67,13 +67,14 @@ model User {
 
 model GeoZone {
   id         Int                                    @id @default(autoincrement())
-  type       GeoZoneTypes
+  name       String
+  type       GeoZoneTypes                           @default(PARKING)
   area       Unsupported("geometry(Polygon, 4326)")
   speedLimit Decimal?
 }
 
 model Rental {
-  id         String    @id @default(uuid(7))
+  id         String    @id @default(uuid())
   userId     String
   user       User      @relation(fields: [userId], references: [id])
   bikeId     String
